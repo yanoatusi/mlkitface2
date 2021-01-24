@@ -3,36 +3,25 @@ package com.example.mlkitface2
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.util.Log
-import android.widget.FrameLayout
-import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.firebase.ml.vision.FirebaseVision
-import com.google.firebase.ml.vision.common.FirebaseVisionImage
-import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
-import com.google.firebase.ml.vision.label.FirebaseVisionOnDeviceImageLabelerOptions
-import com.google.firebase.ml.vision.text.FirebaseVisionText
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
+import java.nio.ByteBuffer
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.ExecutorService
-
-typealias ODetection = (odt: Array<String?>) -> Unit
-private const val TAG = "CameraXBasic"
+typealias LumaListener = (luma: Double) -> Unit
 
 class MainActivity : AppCompatActivity() {
-    private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
-    private var imageAnalyzer: ImageAnalysis? = null
-    private var camera: Camera? = null
-    private lateinit var bottomSheetBehavier: BottomSheetBehavior<LinearLayout>
 
     private lateinit var outputDirectory: File
     private lateinit var cameraExecutor: ExecutorService
@@ -41,22 +30,118 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // BottomSheetを設定
-        bottomSheetBehavier = BottomSheetBehavior.from(bottomSheetLayout)
-
         // Request camera permissions
         if (allPermissionsGranted()) {
             startCamera()
         } else {
             ActivityCompat.requestPermissions(
-                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
-            )
+                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
-        // Setup the listener for take photo button
+
+        // Set up the listener for take photo button
+        camera_capture_button.setOnClickListener { takePhoto() }
+
         outputDirectory = getOutputDirectory()
+
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
 
+    private fun takePhoto() {
+        // Get a stable reference of the modifiable image capture use case
+        val imageCapture = imageCapture ?: return
+
+        // Create time-stamped output file to hold the image
+        val photoFile = File(
+            outputDirectory,
+            SimpleDateFormat(FILENAME_FORMAT, Locale.US
+            ).format(System.currentTimeMillis()) + ".jpg")
+
+        // Create output options object which contains file + metadata
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        // Set up image capture listener, which is triggered after photo has
+        // been taken
+        imageCapture.takePicture(
+            outputOptions, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
+                override fun onError(exc: ImageCaptureException) {
+                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                }
+
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    val savedUri = Uri.fromFile(photoFile)
+                    val msg = "Photo capture succeeded: $savedUri"
+                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, msg)
+                }
+            })
+    }
+
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+
+        cameraProviderFuture.addListener(Runnable {
+            // Used to bind the lifecycle of cameras to the lifecycle owner
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+
+            // Preview
+            val preview = Preview.Builder()
+                .build()
+                .also {
+                    it.setSurfaceProvider(viewFinder.createSurfaceProvider())
+                }
+
+            imageCapture = ImageCapture.Builder()
+                .build()
+
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .build()
+                .also {
+                    it.setAnalyzer(cameraExecutor, FaceAnalyzer {faces ->
+                        Log.d(TAG, "Face detected: $faces")
+                        camera_capture_button.setEnabled(faces > 0)
+                    })
+                }
+
+            // Select back camera as a default
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+            try {
+                // Unbind use cases before rebinding
+                cameraProvider.unbindAll()
+
+                // Bind use cases to camera
+                cameraProvider.bindToLifecycle(
+                    this, cameraSelector, preview, imageCapture, imageAnalyzer)
+
+            } catch(exc: Exception) {
+                Log.e(TAG, "Use case binding failed", exc)
+            }
+
+        }, ContextCompat.getMainExecutor(this))
+    }
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun getOutputDirectory(): File {
+        val mediaDir = externalMediaDirs.firstOrNull()?.let {
+            File(it, resources.getString(R.string.app_name)).apply { mkdirs() } }
+        return if (mediaDir != null && mediaDir.exists())
+            mediaDir else filesDir
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
+    }
+
+    companion object {
+        private const val TAG = "CameraXBasic"
+        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        private const val REQUEST_CODE_PERMISSIONS = 10
+        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
+    }
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<String>, grantResults:
         IntArray) {
@@ -71,171 +156,47 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
 
-    //MARK:  ===== カメラ起動 =====
-    private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        val frameLayout = FrameLayout(this)
-        cameraProviderFuture.addListener(Runnable {
-            // Used to bind the lifecycle of cameras to the lifecycle owner
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
-            // Preview
-            preview = Preview.Builder()
-                .build()
-
-            imageCapture = ImageCapture.Builder()
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                .build()
-
-            imageAnalyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    // OCRの結果
-                    it.setAnalyzer(cameraExecutor, ImageAnalyze { txtArr ->
-                        var showTxt = ""
-                        frameLayout.removeAllViews()
-                        for (txt in txtArr){
-                            txt?.let{
-                                showTxt += " $txt"
-                            }
-                        }
-                        bottomSheetText.text = showTxt
-                        Log.d(TAG, "listener fired!: $showTxt")
-                    })
-                }
-
-            // Select back camera
-            val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
-
-            try {
-                // Unbind use cases before rebinding
-                cameraProvider.unbindAll()
-
-                // Bind use cases to camera
-                camera = cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageCapture, imageAnalyzer)
-                preview?.setSurfaceProvider(viewFinder.createSurfaceProvider(camera?.cameraInfo))
-            } catch(exc: Exception) {
-                Log.e(TAG, "Use case binding failed", exc)
-            }
-
-        }, ContextCompat.getMainExecutor(this))
-    }
-
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(
-            baseContext, it) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun getOutputDirectory(): File {
-        val mediaDir = externalMediaDirs.firstOrNull()?.let {
-            File(it, resources.getString(R.string.app_name)).apply { mkdirs() } }
-        return if (mediaDir != null && mediaDir.exists())
-            mediaDir else filesDir
-    }
-
-    companion object {
-        private const val REQUEST_CODE_PERMISSIONS = 10
-        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
-    }
-
-    // 画像分析 - フレームごとにオブジェクト分類
-    class ImageAnalyze (private val listener: ODetection): ImageAnalysis.Analyzer {
-        val options = FirebaseVisionOnDeviceImageLabelerOptions.Builder()
-            .setConfidenceThreshold(0.7f)
-            .build()
-        val labeler = FirebaseVision.getInstance().getOnDeviceImageLabeler(options)
-
-        val detector = FirebaseVision.getInstance()
-            .onDeviceTextRecognizer
-
-        private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
-            0 -> FirebaseVisionImageMetadata.ROTATION_0
-            90 -> FirebaseVisionImageMetadata.ROTATION_90
-            180 -> FirebaseVisionImageMetadata.ROTATION_180
-            270 -> FirebaseVisionImageMetadata.ROTATION_270
-            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
+        private fun ByteBuffer.toByteArray(): ByteArray {
+            rewind()    // Rewind the buffer to zero
+            val data = ByteArray(remaining())
+            get(data)   // Copy the buffer into a byte array
+            return data // Return the byte array
         }
 
-        // フレームごとに呼ばれる
         override fun analyze(image: ImageProxy) {
-            // Pass image to an ML Kit Vision API
-            doObjectClassification(image)
-        }
 
-        // 画像分類
-        @SuppressLint("UnsafeExperimentalUsageError")
-        private fun doObjectClassification(proxy: ImageProxy) {
-            val mediaImage = proxy.image ?: return
-            val imageRotation = degreesToFirebaseRotation(proxy.imageInfo.rotationDegrees)
-            val image = FirebaseVisionImage.fromMediaImage(mediaImage, imageRotation)
-            labeler.processImage(image)
-                .addOnSuccessListener { labels ->
-                    // Task completed successfully
-                    for (label in labels) {
-                        val text = label.text
-                        Log.d(TAG, "text: $text")
-                        if (text == "Paper") {
-                            doTextRecognition(image)
-                        } else {
-                            // do something
-                        }
-                    }
-                    proxy.close()
+            val buffer = image.planes[0].buffer
+            val data = buffer.toByteArray()
+            val pixels = data.map { it.toInt() and 0xFF }
+            val luma = pixels.average()
+
+            listener(luma)
+
+            image.close()
+        }
+    }
+
+    private class FaceAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
+        private val detector = FaceDetection.getClient()
+
+        @ExperimentalGetImage
+        override fun analyze(imageProxy: ImageProxy) {
+
+            val mediaImage = imageProxy.image ?: return
+            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+
+            detector.process(image)
+                .addOnSuccessListener { faces ->
+                    listener(faces.size)
                 }
                 .addOnFailureListener { e ->
-                    // Task failed with an exception
-                    Log.e(TAG, e.toString())
-                    proxy.close()
+                    Log.e("FaceAnalyzer", "Face detection failure.", e)
                 }
-        }
-
-        //文字認識 - 書類に書かれた文字のみ認識する　
-        private fun doTextRecognition(image: FirebaseVisionImage) {
-            val result = detector.processImage(image)
-                .addOnSuccessListener { firebaseVisionText ->
-                    // Task completed successfully
-                    parseResultText(firebaseVisionText)
-                    Log.d(TAG, "OCR Succeeded!")
+                .addOnCompleteListener {
+                    imageProxy.close()
                 }
-                .addOnFailureListener { e ->
-                    // Task failed with an exception
-                    Log.d(TAG, "OCR Failed...")
-                    Log.e(TAG, e.toString())
-                }
-        }
-
-        // パース - OCRで認識された文字列をParseする
-        private fun parseResultText(result: FirebaseVisionText) {
-            var resultTxtList:Array<String?> = arrayOf(null)
-            for (block in result.textBlocks) {
-                val blockText = block.text
-                // If you need more data, Uncommentout here
-//                val blockConfidence = block.confidence
-//                val blockLanguages = block.recognizedLanguages
-//                val blockCornerPoints = block.cornerPoints
-//                val blockFrame = block.boundingBox
-                resultTxtList += blockText
-                // If you need more data, Uncommentout here
-//                for (line in block.lines) {
-//                    val lineText = line.text
-//                    val lineConfidence = line.confidence
-//                    val lineLanguages = line.recognizedLanguages
-//                    val lineCornerPoints = line.cornerPoints
-//                    val lineFrame = line.boundingBox
-//                    for (element in line.elements) {
-//                        val elementText = element.text
-//                        val elementConfidence = element.confidence
-//                        val elementLanguages = element.recognizedLanguages
-//                        val elementCornerPoints = element.cornerPoints
-//                        val elementFrame = element.boundingBox
-//                    }
-//                }
-            }
-            Log.d("RESULT_TEXT",resultTxtList.toString())
-            listener(resultTxtList)
         }
     }
 }
