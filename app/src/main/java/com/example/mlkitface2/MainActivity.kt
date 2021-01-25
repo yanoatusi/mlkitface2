@@ -12,8 +12,10 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.text.SimpleDateFormat
@@ -170,27 +172,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    private class FaceAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
-        private val detector = FaceDetection.getClient()
-
-        @ExperimentalGetImage
-        override fun analyze(imageProxy: ImageProxy) {
-
-            val mediaImage = imageProxy.image ?: return
-            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-
-            detector.process(image)
-                .addOnSuccessListener { faces ->
-                    listener(faces.size)
-                }
-                .addOnFailureListener { e ->
-                    Log.e("FaceAnalyzer", "Face detection failure.", e)
-                }
-                .addOnCompleteListener {
-                    imageProxy.close()
-                }
-        }
-    }
     private class YourImageAnalyzer : ImageAnalysis.Analyzer {
         private fun degreesToFirebaseRotation(degrees: Int): Int = when(degrees) {
             0 -> FirebaseVisionImageMetadata.ROTATION_0
@@ -206,7 +187,6 @@ class MainActivity : AppCompatActivity() {
             if (mediaImage != null) {
                 val image = FirebaseVisionImage.fromMediaImage(mediaImage, imageRotation)
                 // Pass image to an ML Kit Vision API
-                // ...
             }
         }
     }
