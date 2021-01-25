@@ -1,23 +1,27 @@
 package com.example.mlkitface2
 
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.Image
 import android.net.Uri
+import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import java.util.concurrent.Executors
+import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
-import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+
+
 typealias LumaListener = (luma: Double) -> Unit
 
 class MainActivity : AppCompatActivity() {
@@ -35,7 +39,8 @@ class MainActivity : AppCompatActivity() {
             startCamera()
         } else {
             ActivityCompat.requestPermissions(
-                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
+            )
         }
 
         // Set up the listener for take photo button
@@ -53,8 +58,10 @@ class MainActivity : AppCompatActivity() {
         // Create time-stamped output file to hold the image
         val photoFile = File(
             outputDirectory,
-            SimpleDateFormat(FILENAME_FORMAT, Locale.US
-            ).format(System.currentTimeMillis()) + ".jpg")
+            SimpleDateFormat(
+                FILENAME_FORMAT, Locale.US
+            ).format(System.currentTimeMillis()) + ".jpg"
+        )
 
         // Create output options object which contains file + metadata
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
@@ -62,7 +69,9 @@ class MainActivity : AppCompatActivity() {
         // Set up image capture listener, which is triggered after photo has
         // been taken
         imageCapture.takePicture(
-            outputOptions, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
+            outputOptions,
+            ContextCompat.getMainExecutor(this),
+            object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {
                     Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
                 }
@@ -96,7 +105,7 @@ class MainActivity : AppCompatActivity() {
             val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
                 .also {
-                    it.setAnalyzer(cameraExecutor, FaceAnalyzer {faces ->
+                    it.setAnalyzer(cameraExecutor, FaceAnalyzer { faces ->
                         Log.d(TAG, "Face detected: $faces")
                         camera_capture_button.setEnabled(faces > 0)
                     })
@@ -111,9 +120,10 @@ class MainActivity : AppCompatActivity() {
 
                 // Bind use cases to camera
                 cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageCapture, imageAnalyzer)
+                    this, cameraSelector, preview, imageCapture, imageAnalyzer
+                )
 
-            } catch(exc: Exception) {
+            } catch (exc: Exception) {
                 Log.e(TAG, "Use case binding failed", exc)
             }
 
@@ -121,7 +131,8 @@ class MainActivity : AppCompatActivity() {
     }
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(
-            baseContext, it) == PackageManager.PERMISSION_GRANTED
+            baseContext, it
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun getOutputDirectory(): File {
@@ -144,40 +155,21 @@ class MainActivity : AppCompatActivity() {
     }
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<String>, grantResults:
-        IntArray) {
+        IntArray
+    ) {
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
                 startCamera()
             } else {
-                Toast.makeText(this,
+                Toast.makeText(
+                    this,
                     "Permissions not granted by the user.",
-                    Toast.LENGTH_SHORT).show()
+                    Toast.LENGTH_SHORT
+                ).show()
                 finish()
             }
         }
     }
-    private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
-
-        private fun ByteBuffer.toByteArray(): ByteArray {
-            rewind()    // Rewind the buffer to zero
-            val data = ByteArray(remaining())
-            get(data)   // Copy the buffer into a byte array
-            return data // Return the byte array
-        }
-
-        override fun analyze(image: ImageProxy) {
-
-            val buffer = image.planes[0].buffer
-            val data = buffer.toByteArray()
-            val pixels = data.map { it.toInt() and 0xFF }
-            val luma = pixels.average()
-
-            listener(luma)
-
-            image.close()
-        }
-    }
-
     private class FaceAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
         private val detector = FaceDetection.getClient()
 
@@ -197,6 +189,25 @@ class MainActivity : AppCompatActivity() {
                 .addOnCompleteListener {
                     imageProxy.close()
                 }
+        }
+    }
+    private class YourImageAnalyzer : ImageAnalysis.Analyzer {
+        private fun degreesToFirebaseRotation(degrees: Int): Int = when(degrees) {
+            0 -> FirebaseVisionImageMetadata.ROTATION_0
+            90 -> FirebaseVisionImageMetadata.ROTATION_90
+            180 -> FirebaseVisionImageMetadata.ROTATION_180
+            270 -> FirebaseVisionImageMetadata.ROTATION_270
+            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
+        }
+
+        override fun analyze(imageProxy: ImageProxy?, degrees: Int) {
+            val mediaImage = imageProxy?.image
+            val imageRotation = degreesToFirebaseRotation(degrees)
+            if (mediaImage != null) {
+                val image = FirebaseVisionImage.fromMediaImage(mediaImage, imageRotation)
+                // Pass image to an ML Kit Vision API
+                // ...
+            }
         }
     }
 }
