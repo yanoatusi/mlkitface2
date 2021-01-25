@@ -1,12 +1,21 @@
 package com.example.mlkitface2
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.camera2.CameraAccessException
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.media.Image
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.SparseIntArray
+import android.view.Surface
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -16,6 +25,8 @@ import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.text.SimpleDateFormat
@@ -172,6 +183,39 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    // High-accuracy landmark detection and face classification
+    val highAccuracyOpts = FirebaseVisionFaceDetectorOptions.Builder()
+        .setPerformanceMode(FirebaseVisionFaceDetectorOptions.ACCURATE)
+        .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
+        .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+        .build()
+
+    // Real-time contour detection of multiple faces
+    val realTimeOpts = FirebaseVisionFaceDetectorOptions.Builder()
+        .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
+        .build()
+    private class FaceAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
+        private val detector = FaceDetection.getClient()
+
+        @ExperimentalGetImage
+        override fun analyze(imageProxy: ImageProxy) {
+
+            val mediaImage = imageProxy.image ?: return
+            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+
+            detector.process(image)
+                .addOnSuccessListener { faces ->
+                    listener(faces.size)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FaceAnalyzer", "Face detection failure.", e)
+                }
+                .addOnCompleteListener {
+                    imageProxy.close()
+                }
+        }
+    }
     private class YourImageAnalyzer : ImageAnalysis.Analyzer {
         private fun degreesToFirebaseRotation(degrees: Int): Int = when(degrees) {
             0 -> FirebaseVisionImageMetadata.ROTATION_0
@@ -187,6 +231,7 @@ class MainActivity : AppCompatActivity() {
             if (mediaImage != null) {
                 val image = FirebaseVisionImage.fromMediaImage(mediaImage, imageRotation)
                 // Pass image to an ML Kit Vision API
+                // ...
             }
         }
     }
