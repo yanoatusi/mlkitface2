@@ -27,7 +27,7 @@ import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.*
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.text.SimpleDateFormat
@@ -110,20 +110,15 @@ class MainActivity : AppCompatActivity() {
             val preview = Preview.Builder()
                 .build()
                 .also {
-                            it.setSurfaceProvider(viewFinder.createSurfaceProvider())
+                    it.setSurfaceProvider(viewFinder.createSurfaceProvider())
                 }
 
             imageCapture = ImageCapture.Builder()
                 .build()
 
-            val imageAnalyzer = ImageAnalysis.Builder()
+            val YourImageAnalyzer = ImageAnalysis.Builder()
                 .build()
-                .also {
-                    it.setAnalyzer(cameraExecutor, FaceAnalyzer { faces ->
-                        Log.d(TAG, "Face detected: $faces")
-                        camera_capture_button.setEnabled(faces > 0)
-                    })
-                }
+
 
             // Select back camera as a default
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -134,7 +129,7 @@ class MainActivity : AppCompatActivity() {
 
                 // Bind use cases to camera
                 cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageCapture, imageAnalyzer
+                    this, cameraSelector, preview, imageCapture, YourImageAnalyzer
                 )
 
             } catch (exc: Exception) {
@@ -143,6 +138,7 @@ class MainActivity : AppCompatActivity() {
 
         }, ContextCompat.getMainExecutor(this))
     }
+
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(
             baseContext, it
@@ -151,7 +147,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun getOutputDirectory(): File {
         val mediaDir = externalMediaDirs.firstOrNull()?.let {
-            File(it, resources.getString(R.string.app_name)).apply { mkdirs() } }
+            File(it, resources.getString(R.string.app_name)).apply { mkdirs() }
+        }
         return if (mediaDir != null && mediaDir.exists())
             mediaDir else filesDir
     }
@@ -167,6 +164,7 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
     }
+
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<String>, grantResults:
         IntArray
@@ -196,6 +194,7 @@ class MainActivity : AppCompatActivity() {
     val realTimeOpts = FirebaseVisionFaceDetectorOptions.Builder()
         .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
         .build()
+
     private class FaceAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
         private val detector = FaceDetection.getClient()
 
@@ -217,15 +216,83 @@ class MainActivity : AppCompatActivity() {
                 }
         }
     }
-//    private class YourImageAnalyzer : ImageAnalysis.Analyzer {
-//
-//        override fun analyze(imageProxy: ImageProxy) {
-//            val mediaImage = imageProxy.image
-//            if (mediaImage != null) {
-//                val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-//                // Pass image to an ML Kit Vision API
-//                // ...
-//            }
-//        }
-//    }
+    private class YourImageAnalyzer : ImageAnalysis.Analyzer {
+
+        override fun analyze(imageProxy: ImageProxy) {
+            val mediaImage = imageProxy.image
+            if (mediaImage != null) {
+                val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                // Pass image to an ML Kit Vision API
+                val detector = FaceDetection.getClient()
+                val result = detector.process(image)
+                    .addOnSuccessListener { faces ->
+                        // Task completed successfully
+                        for (face in faces) {
+                            val bounds = face.boundingBox
+                            val rotY = face.headEulerAngleY // Head is rotated to the right rotY degrees
+                            val rotZ = face.headEulerAngleZ // Head is tilted sideways rotZ degrees
+
+                            // If landmark detection was enabled (mouth, ears, eyes, cheeks, and
+                            // nose available):
+                            val leftEar = face.getLandmark(FaceLandmark.LEFT_EAR)
+                            leftEar?.let {
+                                val leftEarPos = leftEar.position
+                            }
+
+                            // If contour detection was enabled:
+                            val leftEyeContour = face.getContour(FaceContour.LEFT_EYE)?.points
+                            val upperLipBottomContour = face.getContour(FaceContour.UPPER_LIP_BOTTOM)?.points
+
+                            // If classification was enabled:
+                            if (face.smilingProbability != null) {
+                                val smileProb = face.smilingProbability
+                            }
+                            if (face.rightEyeOpenProbability != null) {
+                                val rightEyeOpenProb = face.rightEyeOpenProbability
+                            }
+
+                            // If face tracking was enabled:
+                            if (face.trackingId != null) {
+                                val id = face.trackingId
+                            }
+                        }
+                        // ...
+                    }
+                    .addOnFailureListener { e ->
+                        // Task failed with an exception
+                        // ...
+                    }
+                // ...
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
