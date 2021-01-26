@@ -16,6 +16,8 @@ import android.util.Log
 import android.util.SparseIntArray
 import android.view.OrientationEventListener
 import android.view.Surface
+import android.view.Surface.ROTATION_0
+import android.view.Surface.ROTATION_90
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
@@ -221,13 +223,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private class YourImageAnalyzer : ImageAnalysis.Analyzer {
-
+        private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
+            0 -> FirebaseVisionImageMetadata.ROTATION_90
+            90 -> FirebaseVisionImageMetadata.ROTATION_180
+            180 -> FirebaseVisionImageMetadata.ROTATION_270
+            270 -> FirebaseVisionImageMetadata.ROTATION_0
+            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
+        }
         @SuppressLint("UnsafeExperimentalUsageError")
         override fun analyze(imageProxy: ImageProxy) {
             val mediaImage = imageProxy.image
-            if (mediaImage != null) {
-                val image =
-                    InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+            val imageRotation = degreesToFirebaseRotation(ROTATION_90)
+                if (mediaImage != null) {
+                    val image = InputImage.fromMediaImage(mediaImage, imageRotation)
                 // Pass image to an ML Kit Vision API
                 val detector = FaceDetection.getClient()
                 val result = detector.process(image)
@@ -272,13 +280,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 // ...
             }
-        }
-        private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
-            0 -> FirebaseVisionImageMetadata.ROTATION_0
-            90 -> FirebaseVisionImageMetadata.ROTATION_90
-            180 -> FirebaseVisionImageMetadata.ROTATION_180
-            270 -> FirebaseVisionImageMetadata.ROTATION_270
-            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
         }
     }
 
