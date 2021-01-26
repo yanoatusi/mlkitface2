@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.util.SparseIntArray
+import android.view.OrientationEventListener
 import android.view.Surface
 import android.widget.Toast
 import androidx.annotation.RequiresApi
@@ -47,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
 
         // Request camera permissions
         if (allPermissionsGranted()) {
@@ -114,6 +116,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
             imageCapture = ImageCapture.Builder()
+                .setTargetRotation(Surface.ROTATION_270)
                 .build()
 
             val YourImageAnalyzer = ImageAnalysis.Builder()
@@ -216,12 +219,15 @@ class MainActivity : AppCompatActivity() {
                 }
         }
     }
+
     private class YourImageAnalyzer : ImageAnalysis.Analyzer {
 
+        @SuppressLint("UnsafeExperimentalUsageError")
         override fun analyze(imageProxy: ImageProxy) {
             val mediaImage = imageProxy.image
             if (mediaImage != null) {
-                val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                val image =
+                    InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                 // Pass image to an ML Kit Vision API
                 val detector = FaceDetection.getClient()
                 val result = detector.process(image)
@@ -229,7 +235,8 @@ class MainActivity : AppCompatActivity() {
                         // Task completed successfully
                         for (face in faces) {
                             val bounds = face.boundingBox
-                            val rotY = face.headEulerAngleY // Head is rotated to the right rotY degrees
+                            val rotY =
+                                face.headEulerAngleY // Head is rotated to the right rotY degrees
                             val rotZ = face.headEulerAngleZ // Head is tilted sideways rotZ degrees
 
                             // If landmark detection was enabled (mouth, ears, eyes, cheeks, and
@@ -241,7 +248,8 @@ class MainActivity : AppCompatActivity() {
 
                             // If contour detection was enabled:
                             val leftEyeContour = face.getContour(FaceContour.LEFT_EYE)?.points
-                            val upperLipBottomContour = face.getContour(FaceContour.UPPER_LIP_BOTTOM)?.points
+                            val upperLipBottomContour =
+                                face.getContour(FaceContour.UPPER_LIP_BOTTOM)?.points
 
                             // If classification was enabled:
                             if (face.smilingProbability != null) {
@@ -265,7 +273,15 @@ class MainActivity : AppCompatActivity() {
                 // ...
             }
         }
+        private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
+            0 -> FirebaseVisionImageMetadata.ROTATION_0
+            90 -> FirebaseVisionImageMetadata.ROTATION_90
+            180 -> FirebaseVisionImageMetadata.ROTATION_180
+            270 -> FirebaseVisionImageMetadata.ROTATION_270
+            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
+        }
     }
+
 
 
 
