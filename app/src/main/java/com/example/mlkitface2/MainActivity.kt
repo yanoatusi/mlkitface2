@@ -235,50 +235,46 @@ class MainActivity : AppCompatActivity() {
             val mediaImage = imageProxy.image
             val imageRotation = degreesToFirebaseRotation(ROTATION_90)
                 if (mediaImage != null) {
-                    val image = FirebaseVisionImage.fromMediaImage(mediaImage, imageRotation)
+                    val image = InputImage.fromMediaImage(mediaImage, ROTATION_0)
                 // Pass image to an ML Kit Vision API
                 val detector = FaceDetection.getClient()
-//                val result = detector.process(image)
-//                    .addOnSuccessListener { faces ->
-//                        // Task completed successfully
-//                        for (face in faces) {
-//                            val bounds = face.boundingBox
-//                            val rotY =
-//                                face.headEulerAngleY // Head is rotated to the right rotY degrees
-//                            val rotZ = face.headEulerAngleZ // Head is tilted sideways rotZ degrees
-//
-//                            // If landmark detection was enabled (mouth, ears, eyes, cheeks, and
-//                            // nose available):
-//                            val leftEar = face.getLandmark(FaceLandmark.LEFT_EAR)
-//                            leftEar?.let {
-//                                val leftEarPos = leftEar.position
-//                            }
-//
-//                            // If contour detection was enabled:
-//                            val leftEyeContour = face.getContour(FaceContour.LEFT_EYE)?.points
-//                            val upperLipBottomContour =
-//                                face.getContour(FaceContour.UPPER_LIP_BOTTOM)?.points
-//
-//                            // If classification was enabled:
-//                            if (face.smilingProbability != null) {
-//                                val smileProb = face.smilingProbability
-//                            }
-//                            if (face.rightEyeOpenProbability != null) {
-//                                val rightEyeOpenProb = face.rightEyeOpenProbability
-//                            }
-//
-//                            // If face tracking was enabled:
-//                            if (face.trackingId != null) {
-//                                val id = face.trackingId
-//                            }
-//                        }
-//                        // ...
-//                    }
-//                    .addOnFailureListener { e ->
-//                        // Task failed with an exception
-//                        // ...
-//                    }
-//                // ...
+                    val result = detector.process(image)
+                        .addOnSuccessListener { faces ->
+                            // Task completed successfully
+                            // [START_EXCLUDE]
+                            // [START get_face_info]
+                            for (face in faces) {
+                                val bounds = face.boundingBox
+                                val rotY = face.headEulerAngleY // Head is rotated to the right rotY degrees
+                                val rotZ = face.headEulerAngleZ // Head is tilted sideways rotZ degrees
+
+                                // If landmark detection was enabled (mouth, ears, eyes, cheeks, and
+                                // nose available):
+                                val leftEar = face.getLandmark(FaceLandmark.LEFT_EAR)
+                                leftEar?.let {
+                                    val leftEarPos = leftEar.position
+                                }
+
+                                // If classification was enabled:
+                                if (face.smilingProbability != null) {
+                                    val smileProb = face.smilingProbability
+                                }
+                                if (face.rightEyeOpenProbability != null) {
+                                    val rightEyeOpenProb = face.rightEyeOpenProbability
+                                }
+
+                                // If face tracking was enabled:
+                                if (face.trackingId != null) {
+                                    val id = face.trackingId
+                                }
+                            }
+                            // [END get_face_info]
+                            // [END_EXCLUDE]
+                        }
+                        .addOnFailureListener { e ->
+                            // Task failed with an exception
+                            // ...
+                        }               // ...
             }
         }
     }
