@@ -113,4 +113,5 @@ class FaceDetectionActivity : AppCompatActivity() {
         }
         // [END mlkit_face_list]
     }
+
 }

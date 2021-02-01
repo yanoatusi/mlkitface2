@@ -121,8 +121,12 @@ class MainActivity : AppCompatActivity() {
                 .setTargetRotation(Surface.ROTATION_270)
                 .build()
 
-            val YourImageAnalyzer = ImageAnalysis.Builder()
+            val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
+                .also {
+                    // ここに追加
+                    it.setAnalyzer(cameraExecutor, YourImageAnalyzer())
+                }
 
 
             // Select back camera as a default
@@ -134,7 +138,7 @@ class MainActivity : AppCompatActivity() {
 
                 // Bind use cases to camera
                 cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageCapture, YourImageAnalyzer
+                    this, cameraSelector, preview, imageCapture, imageAnalyzer
                 )
 
             } catch (exc: Exception) {
