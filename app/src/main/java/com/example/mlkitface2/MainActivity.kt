@@ -115,10 +115,7 @@ class MainActivity : AppCompatActivity() {
 
             val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
-            imageAnalyzer.setAnalyzer(cameraExecutor, YourImageAnalyzer { faces ->
-                camera_capture_button.setEnabled(faces > 0)
-                // insert your code here.
-            })
+            imageAnalyzer.setAnalyzer(cameraExecutor, YourImageAnalyzer())
 
 
             // Select back camera as a default
@@ -218,19 +215,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private class YourImageAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
-        private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
-            0 -> FirebaseVisionImageMetadata.ROTATION_90
-            90 -> FirebaseVisionImageMetadata.ROTATION_180
-            180 -> FirebaseVisionImageMetadata.ROTATION_270
-            270 -> FirebaseVisionImageMetadata.ROTATION_0
-            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
-        }
+    private class YourImageAnalyzer : ImageAnalysis.Analyzer {
 
         @SuppressLint("UnsafeExperimentalUsageError")
         override fun analyze(imageProxy: ImageProxy) {
             val mediaImage = imageProxy.image
-            val imageRotation = degreesToFirebaseRotation(ROTATION_90)
                 if (mediaImage != null) {
                     val image = InputImage.fromMediaImage(mediaImage, ROTATION_0)
                 // Pass image to an ML Kit Vision API
