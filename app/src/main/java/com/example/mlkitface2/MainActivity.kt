@@ -2,31 +2,19 @@ package com.example.mlkitface2
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.Context
 import android.content.pm.PackageManager
-import android.hardware.camera2.CameraAccessException
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
-import android.media.Image
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.util.SparseIntArray
-import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.Surface.ROTATION_0
 import android.view.Surface.ROTATION_90
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.firebase.ml.vision.FirebaseVision
-import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.google.mlkit.vision.common.InputImage
@@ -34,9 +22,13 @@ import com.google.mlkit.vision.face.*
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.text.SimpleDateFormat
+
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import com.example.mlkitface2.MainActivity.YourImageAnalyzer as YourImageAnalyzer1
+
+
 
 
 typealias LumaListener = (luma: Double) -> Unit
@@ -118,15 +110,15 @@ class MainActivity : AppCompatActivity() {
                 }
 
             imageCapture = ImageCapture.Builder()
-                .setTargetRotation(Surface.ROTATION_270)
+                .setTargetRotation(Surface.ROTATION_0)
                 .build()
 
             val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
-                .also {
-                    // ここに追加
-                    it.setAnalyzer(cameraExecutor, YourImageAnalyzer())
-                }
+            imageAnalyzer.setAnalyzer(cameraExecutor, YourImageAnalyzer { faces ->
+                camera_capture_button.setEnabled(faces > 0)
+                // insert your code here.
+            })
 
 
             // Select back camera as a default
@@ -226,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private class YourImageAnalyzer : ImageAnalysis.Analyzer {
+    private class YourImageAnalyzer(private var listener: (Int) -> Unit) : ImageAnalysis.Analyzer {
         private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
             0 -> FirebaseVisionImageMetadata.ROTATION_90
             90 -> FirebaseVisionImageMetadata.ROTATION_180
@@ -234,6 +226,7 @@ class MainActivity : AppCompatActivity() {
             270 -> FirebaseVisionImageMetadata.ROTATION_0
             else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
         }
+
         @SuppressLint("UnsafeExperimentalUsageError")
         override fun analyze(imageProxy: ImageProxy) {
             val mediaImage = imageProxy.image
