@@ -125,12 +125,12 @@ class MainActivity : AppCompatActivity() {
                         .addOnSuccessListener { faces ->
                             faces.forEach { face ->
                                 if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
-                                    label.text = "Blinking"
+                                    label.text = "両目が閉じている"
                                     // one.wav の再生
                                     // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
                                     soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
                                 } else {
-                                    label.text = "Not Blinking"
+                                    label.text = "両目が閉じていない"
                                 }
                             }
                         }
