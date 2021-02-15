@@ -20,7 +20,7 @@
         android:layout_marginBottom="32dp"
         android:background="#000000"
         android:gravity="center"
-        android:text="Point the camera at an object to get started"
+        android:text=""
         android:textColor="#fff"
         android:textSize="20sp"
         android:textStyle="bold" />

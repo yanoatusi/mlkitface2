@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         .setPerformanceMode(FirebaseVisionFaceDetectorOptions.FAST)
         .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
         .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+
         .build()
 
     val faceDetector =
@@ -123,7 +124,7 @@ class MainActivity : AppCompatActivity() {
                     faceDetector.detectInImage(visionImage)
                         .addOnSuccessListener { faces ->
                             faces.forEach { face ->
-                                if (face.leftEyeOpenProbability < 0.4 || face.rightEyeOpenProbability < 0.4) {
+                                if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
                                     label.text = "Blinking"
                                     // one.wav の再生
                                     // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
