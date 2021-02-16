@@ -130,7 +130,7 @@ class MainActivity : AppCompatActivity() {
                                     // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
                                     soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
                                 } else {
-                                    label.text = "両目が閉じていない"
+                                    label.text = "両目が開いている"
                                 }
                             }
                         }
