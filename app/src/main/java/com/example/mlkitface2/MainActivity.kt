@@ -1,14 +1,21 @@
 package com.example.mlkitface2
 
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
+import android.view.Surface
+import android.view.TextureView
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
@@ -54,7 +61,12 @@ class MainActivity : AppCompatActivity() {
             Log.d("debug", "status=$status")
         }
 
-        startCamera()
+        // Request camera permissions
+        if (allPermissionsGranted()) {
+            startCamera()
+        } else {
+            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+        }
     }
 
     var highAccuracyOpts = FirebaseVisionFaceDetectorOptions.Builder()
@@ -100,6 +112,27 @@ class MainActivity : AppCompatActivity() {
         CameraX.bindToLifecycle(this, preview, imageAnalysis)
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permessions: Array<String>, grantResults: IntArray) {
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                startCamera()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Permissions not granted by the user.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                finish()
+            }
+        }
+    }
+
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext, it
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     inner class ImageProcessor : ImageAnalysis.Analyzer {
         private val TAG = javaClass.simpleName
 
@@ -117,7 +150,9 @@ class MainActivity : AppCompatActivity() {
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp >=
                 TimeUnit.SECONDS.toMillis(1)
+
             ) {
+
                 val imageRotation = degreesToFirebaseRotation(rotationDegrees)
                 image?.image?.let {
                     val visionImage = FirebaseVisionImage.fromMediaImage(it, imageRotation)
@@ -125,21 +160,29 @@ class MainActivity : AppCompatActivity() {
                         .addOnSuccessListener { faces ->
                             faces.forEach { face ->
                                 if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
+                                    Log.d("debug", "eye true")
                                     label.text = "両目が閉じている"
                                     // one.wav の再生
                                     // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
                                     soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
                                 } else {
-                                    label.text = "両目が開いている"
+                                    label.text = "目が開いている"
                                 }
                             }
                         }
                         .addOnFailureListener {
                             it.printStackTrace()
+                            label.text = "eye"
                         }
                 }
             }
 
         }
+    }
+
+    companion object {
+        private const val TAG = "CameraXBasic"
+        private const val REQUEST_CODE_PERMISSIONS = 10
+        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
     }
 }
