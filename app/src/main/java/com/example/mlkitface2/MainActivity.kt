@@ -1,6 +1,5 @@
 package com.example.mlkitface2
 
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
@@ -8,8 +7,6 @@ import android.media.SoundPool
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
-import android.view.Surface
-import android.view.TextureView
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -17,12 +14,15 @@ import androidx.camera.core.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.ml.vision.FirebaseVision
-import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import com.google.firebase.ml.vision.common.FirebaseVisionImage as FirebaseVisionImage1
 
 
 class MainActivity : AppCompatActivity() {
@@ -69,16 +69,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    var highAccuracyOpts = FirebaseVisionFaceDetectorOptions.Builder()
-        .setPerformanceMode(FirebaseVisionFaceDetectorOptions.FAST)
-        .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-        .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
-
+    var highAccuracyOpts = FaceDetectorOptions.Builder()
+        .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
+        .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+        .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+        .setMinFaceSize(0.1F)
+        .enableTracking()
         .build()
 
-    val faceDetector =
-        FirebaseVision.getInstance()
-            .getVisionFaceDetector(highAccuracyOpts)
+    val faceDetector = FaceDetection.getClient(highAccuracyOpts)
 
     //Function that creates and displays the camera preview
     private fun startCamera() {
@@ -150,29 +150,30 @@ class MainActivity : AppCompatActivity() {
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp >=
                 TimeUnit.SECONDS.toMillis(1)
-
             ) {
 
                 val imageRotation = degreesToFirebaseRotation(rotationDegrees)
                 image?.image?.let {
-                    val visionImage = FirebaseVisionImage.fromMediaImage(it, imageRotation)
-                    faceDetector.detectInImage(visionImage)
+                    val mediaImage = image.image
+                    if (mediaImage != null) {
+                        val ximage = InputImage.fromMediaImage(mediaImage, imageRotation)
+                    }
+//                    val visionImage = FirebaseVisionImage1.fromMediaImage(it, imageRotation)
+                    faceDetector.process(ximage)
                         .addOnSuccessListener { faces ->
                             faces.forEach { face ->
                                 if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
-                                    Log.d("debug", "eye true")
                                     label.text = "両目が閉じている"
                                     // one.wav の再生
                                     // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
                                     soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
                                 } else {
-                                    label.text = "目が開いている"
+                                    label.text = "両目が開いている"
                                 }
                             }
                         }
                         .addOnFailureListener {
                             it.printStackTrace()
-                            label.text = "eye"
                         }
                 }
             }
