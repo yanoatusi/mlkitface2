@@ -154,10 +154,7 @@ class MainActivity : AppCompatActivity() {
 
                 val imageRotation = degreesToFirebaseRotation(rotationDegrees)
                 image?.image?.let {
-                    val mediaImage = image.image
-                    if (mediaImage != null) {
-                        val ximage = InputImage.fromMediaImage(mediaImage, imageRotation)
-                    }
+                     val ximage = InputImage fromMediaImage (image, rotationDegrees)
 //                    val visionImage = FirebaseVisionImage1.fromMediaImage(it, imageRotation)
                     faceDetector.process(ximage)
                         .addOnSuccessListener { faces ->
