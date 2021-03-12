@@ -13,16 +13,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.firebase.ml.vision.FirebaseVision
-import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
-import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
+
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import com.google.firebase.ml.vision.common.FirebaseVisionImage as FirebaseVisionImage1
+
 
 
 class MainActivity : AppCompatActivity() {
@@ -35,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
         val audioAttributes = AudioAttributes.Builder()
             // USAGE_MEDIA
             // USAGE_GAME
@@ -70,8 +67,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     var highAccuracyOpts = FaceDetectorOptions.Builder()
-        .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
+        .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
         .setMinFaceSize(0.1F)
@@ -138,13 +135,6 @@ class MainActivity : AppCompatActivity() {
 
         private var lastAnalyzedTimestamp = 0L
 
-        private fun degreesToFirebaseRotation(degrees: Int): Int = when (degrees) {
-            0 -> FirebaseVisionImageMetadata.ROTATION_0
-            90 -> FirebaseVisionImageMetadata.ROTATION_90
-            180 -> FirebaseVisionImageMetadata.ROTATION_180
-            270 -> FirebaseVisionImageMetadata.ROTATION_270
-            else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
-        }
 
         override fun analyze(imageProxy: ImageProxy?, rotationDegrees: Int) {
             val currentTimestamp = System.currentTimeMillis()
@@ -152,14 +142,13 @@ class MainActivity : AppCompatActivity() {
                 TimeUnit.SECONDS.toMillis(1)
             ) {
 
-                val imageRotation = degreesToFirebaseRotation(rotationDegrees)
                 imageProxy?.image?.let {
                     val mediaImage = imageProxy.image
                     if (mediaImage != null) {
                         val ximage = InputImage.fromMediaImage(mediaImage, rotationDegrees)
 //                    val visionImage = FirebaseVisionImage1.fromMediaImage(it, imageRotation)
                         faceDetector.process(ximage)
-                            .addOnSuccessListener { faces ->
+                        .addOnSuccessListener { faces ->
                                 faces.forEach { face ->
                                     if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
                                         label.text = "両目が閉じている"
