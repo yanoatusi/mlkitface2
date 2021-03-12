@@ -146,32 +146,36 @@ class MainActivity : AppCompatActivity() {
             else -> throw Exception("Rotation must be 0, 90, 180, or 270.")
         }
 
-        override fun analyze(image: ImageProxy?, rotationDegrees: Int) {
+        override fun analyze(imageProxy: ImageProxy?, rotationDegrees: Int) {
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp >=
                 TimeUnit.SECONDS.toMillis(1)
             ) {
 
                 val imageRotation = degreesToFirebaseRotation(rotationDegrees)
-                image?.image?.let {
-                     val ximage = InputImage.fromMediaImage(image, rotationDegrees)
+                imageProxy?.image?.let {
+                    val mediaImage = imageProxy.image
+                    if (mediaImage != null) {
+                        val ximage = InputImage.fromMediaImage(mediaImage, rotationDegrees)
 //                    val visionImage = FirebaseVisionImage1.fromMediaImage(it, imageRotation)
-                    faceDetector.process(ximage)
-                        .addOnSuccessListener { faces ->
-                            faces.forEach { face ->
-                                if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
-                                    label.text = "両目が閉じている"
-                                    // one.wav の再生
-                                    // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
-                                    soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
-                                } else {
-                                    label.text = "両目が開いている"
+                        faceDetector.process(ximage)
+                            .addOnSuccessListener { faces ->
+                                faces.forEach { face ->
+                                    if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
+                                        label.text = "両目が閉じている"
+                                        // one.wav の再生
+                                        // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
+                                        soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
+                                    } else {
+                                        label.text = "両目が開いている"
+                                    }
                                 }
                             }
-                        }
-                        .addOnFailureListener {
-                            it.printStackTrace()
-                        }
+                            .addOnFailureListener {
+                                it.printStackTrace()
+                            }
+                            .addOnCompleteListener { results -> imageProxy.close() }
+                    }
                 }
             }
 
