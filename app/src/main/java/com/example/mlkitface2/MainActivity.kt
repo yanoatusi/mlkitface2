@@ -63,8 +63,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     var highAccuracyOpts = FaceDetectorOptions.Builder()
-        .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
+        .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
         .setMinFaceSize(0.1F)
@@ -133,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         private var lastAnalyzedTimestamp = 0L
 
         override fun analyze(imageProxy: ImageProxy?, rotationDegrees: Int) {
+
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp >=
                 TimeUnit.SECONDS.toMillis(1)
@@ -140,11 +141,13 @@ class MainActivity : AppCompatActivity() {
 
                 imageProxy?.image?.let {
                     val mediaImage = imageProxy.image
+                    Log.d("aaawe","aaawe")
                     if (mediaImage != null) {
                         val ximage = InputImage.fromMediaImage(mediaImage, rotationDegrees)
                         faceDetector.process(ximage)
                         .addOnSuccessListener { faces ->
-                                faces.forEach { face ->
+                            Log.d("aaawe","aaawe")
+                            faces.forEach { face ->
                                     if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
                                         label.text = "両目が閉じている"
                                         // one.wav の再生
