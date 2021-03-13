@@ -13,7 +13,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -21,18 +20,16 @@ import kotlinx.android.synthetic.main.activity_main.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-
-
 class MainActivity : AppCompatActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
-
     private lateinit var soundPool: SoundPool
     private var soundOne = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
         val audioAttributes = AudioAttributes.Builder()
             // USAGE_MEDIA
             // USAGE_GAME
@@ -50,7 +47,6 @@ class MainActivity : AppCompatActivity() {
 
         // one.wav をロードしておく
         soundOne = soundPool.load(this, R.raw.one, 1)
-
 
         // load が終わったか確認する場合
         soundPool.setOnLoadCompleteListener{ soundPool, sampleId, status ->
@@ -83,6 +79,7 @@ class MainActivity : AppCompatActivity() {
         val previewConfig = PreviewConfig.Builder()
             .apply {
                 setTargetResolution(Size(1920, 1080))
+                setLensFacing(CameraX.LensFacing.FRONT)
             }
             .build()
 
@@ -93,10 +90,11 @@ class MainActivity : AppCompatActivity() {
             parent.removeView(cameraView)
             parent.addView(cameraView, 0)
             cameraView.surfaceTexture = it.surfaceTexture
+
         }
 
         val analyzerConfig = ImageAnalysisConfig.Builder().apply {
-
+            setLensFacing(CameraX.LensFacing.FRONT)
             setImageReaderMode(
                 ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE
             )
@@ -132,9 +130,7 @@ class MainActivity : AppCompatActivity() {
 
     inner class ImageProcessor : ImageAnalysis.Analyzer {
         private val TAG = javaClass.simpleName
-
         private var lastAnalyzedTimestamp = 0L
-
 
         override fun analyze(imageProxy: ImageProxy?, rotationDegrees: Int) {
             val currentTimestamp = System.currentTimeMillis()
@@ -146,7 +142,6 @@ class MainActivity : AppCompatActivity() {
                     val mediaImage = imageProxy.image
                     if (mediaImage != null) {
                         val ximage = InputImage.fromMediaImage(mediaImage, rotationDegrees)
-//                    val visionImage = FirebaseVisionImage1.fromMediaImage(it, imageRotation)
                         faceDetector.process(ximage)
                         .addOnSuccessListener { faces ->
                                 faces.forEach { face ->
@@ -156,7 +151,7 @@ class MainActivity : AppCompatActivity() {
                                         // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
                                         soundPool.play(soundOne, 1.0f, 1.0f, 0, 0, 1.0f)
                                     } else {
-                                        label.text = "両目が開いている"
+                                        label.text = "目が開いている"
                                     }
                                 }
                             }
