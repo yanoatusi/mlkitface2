@@ -1,6 +1,7 @@
 package com.example.mlkitface2
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.SoundPool
@@ -11,18 +12,21 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
-    private val executor = Executors.newSingleThreadExecutor()
+    private lateinit var cameraExecutor: ExecutorService
     private lateinit var soundPool: SoundPool
     private var soundOne = 0
 
@@ -75,36 +79,35 @@ class MainActivity : AppCompatActivity() {
 
     //Function that creates and displays the camera preview
     private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
-        val previewConfig = PreviewConfig.Builder()
-            .apply {
-                setTargetResolution(Size(1920, 1080))
-                setLensFacing(CameraX.LensFacing.FRONT)
+        cameraProviderFuture.addListener({
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder()
+                //                    .setTargetRotation(Surface.ROTATION_90)
+                .build()
+                .also {
+                    it.setSurfaceProvider(viewFinder.surfaceProvider)
+                }
+
+            val imageAnalysis = ImageAnalysis.Builder()
+                .build()
+                .also {
+                    it.setAnalyzer(cameraExecutor, ImageProcessor())
+                }
+
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this,
+                    CameraSelector.DEFAULT_FRONT_CAMERA,
+                    preview,
+                    imageAnalysis
+                )
+            } catch (exc: Exception) {
+                Log.e(TAG, "Use case binding failed", exc)
             }
-            .build()
-
-        val preview = Preview(previewConfig)
-
-        preview.setOnPreviewOutputUpdateListener {
-            val parent = cameraView.parent as ViewGroup
-            parent.removeView(cameraView)
-            parent.addView(cameraView, 0)
-            cameraView.surfaceTexture = it.surfaceTexture
-
-        }
-
-        val analyzerConfig = ImageAnalysisConfig.Builder().apply {
-            setLensFacing(CameraX.LensFacing.FRONT)
-            setImageReaderMode(
-                ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE
-            )
-        }.build()
-
-        val imageAnalysis = ImageAnalysis(analyzerConfig).apply {
-            analyzer = ImageProcessor()
-        }
-
-        CameraX.bindToLifecycle(this, preview, imageAnalysis)
+        }, ContextCompat.getMainExecutor(this))
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permessions: Array<String>, grantResults: IntArray) {
@@ -132,7 +135,8 @@ class MainActivity : AppCompatActivity() {
         private val TAG = javaClass.simpleName
         private var lastAnalyzedTimestamp = 0L
 
-        override fun analyze(imageProxy: ImageProxy?, rotationDegrees: Int) {
+        @SuppressLint("UnsafeExperimentalUsageError")
+        override fun analyze(imageProxy: ImageProxy) {
 
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp >=
@@ -143,11 +147,11 @@ class MainActivity : AppCompatActivity() {
                     val mediaImage = imageProxy.image
                     Log.d("aaawe","aaawe")
                     if (mediaImage != null) {
-                        val ximage = InputImage.fromMediaImage(mediaImage, rotationDegrees)
+                        val ximage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                         faceDetector.process(ximage)
-                        .addOnSuccessListener { faces ->
-                            Log.d("aaawe","aaawe")
-                            faces.forEach { face ->
+                            .addOnSuccessListener { faces ->
+                                Log.d("aaawe","aaawe")
+                                faces.forEach { face ->
                                     if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
                                         label.text = "両目が閉じている"
                                         // one.wav の再生
