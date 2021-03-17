@@ -7,13 +7,13 @@ import android.media.AudioAttributes
 import android.media.SoundPool
 import android.os.Bundle
 import android.util.Log
-import android.util.Size
-import android.view.ViewGroup
+import android.view.Surface
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+       // viewFinder.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         val audioAttributes = AudioAttributes.Builder()
             // USAGE_MEDIA
             // USAGE_GAME
@@ -64,6 +64,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
+        cameraExecutor = Executors.newSingleThreadExecutor()
     }
 
     var highAccuracyOpts = FaceDetectorOptions.Builder()
@@ -84,7 +85,7 @@ class MainActivity : AppCompatActivity() {
         cameraProviderFuture.addListener({
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder()
-                //                    .setTargetRotation(Surface.ROTATION_90)
+                                  //  .setTargetRotation(Surface.ROTATION_270)
                 .build()
                 .also {
                     it.setSurfaceProvider(viewFinder.surfaceProvider)
@@ -137,7 +138,7 @@ class MainActivity : AppCompatActivity() {
 
         @SuppressLint("UnsafeExperimentalUsageError")
         override fun analyze(imageProxy: ImageProxy) {
-
+            Log.d("aaawe","aaawe")
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp >=
                 TimeUnit.SECONDS.toMillis(1)
@@ -145,14 +146,13 @@ class MainActivity : AppCompatActivity() {
 
                 imageProxy?.image?.let {
                     val mediaImage = imageProxy.image
-                    Log.d("aaawe","aaawe")
                     if (mediaImage != null) {
                         val ximage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                         faceDetector.process(ximage)
                             .addOnSuccessListener { faces ->
                                 Log.d("aaawe","aaawe")
                                 faces.forEach { face ->
-                                    if (face.leftEyeOpenProbability < 0.4 && face.rightEyeOpenProbability < 0.4) {
+                                    if (face.leftEyeOpenProbability < 0.2 && face.rightEyeOpenProbability < 0.2) {
                                         label.text = "両目が閉じている"
                                         // one.wav の再生
                                         // play(ロードしたID, 左音量, 右音量, 優先度, ループ, 再生速度)
